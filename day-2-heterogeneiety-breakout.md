@@ -42,7 +42,9 @@ sero.tested.li <- c(1599, 301, 111, 50, 50)
 
 Define the SEIR model. SEIR model with variable exposure for each
 demographic group via social mixing matrix; also allows for varying
-degrees of assortativity
+degrees of assortativity.
+
+![](imgs/SEIR.png)
 
 ``` r
 # epsilon = 0 gives proportionate mixing and epsilon = 1 gives fully assortative mixing
@@ -120,7 +122,7 @@ rescale.R0 <- function(beta, g.parm, pop.p, N, R0.value, ngm.plot=TRUE) {
 }
 ```
 
-2.  Simulate variable exposure models given activity levels
+2.  Simulate variable exposure models given activity levels.
 
 ``` r
 # INPUT 
