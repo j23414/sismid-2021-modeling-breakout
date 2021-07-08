@@ -1,7 +1,6 @@
 R code for SISMID 2021 Day 2 Heterogeneity and Herd Immunity Breakout
 Session
 ================
-12/3/2020
 
 Minor Modifications: 2021/07/08
 
@@ -14,39 +13,56 @@ library(RColorBrewer)
 library(reshape2)
 ```
 
-## (1) Set parameters to the SEIR model
+## Example Dataset (input)
+
+Seroprevalence data are from [Rosenberg et al. 2020]() Table 2 and
+population census data are from 2018 ACS 1-year estimates Table B03002
+Split the population into 5 demographic groups: non-Hispanic white,
+Hispanic or Latino, non-Hispanic Black / African-American, NH Asian,
+multiracial / other
+
+-   `pop.loc` = total population at given location
+-   `pop.p.loc` = fraction of each population belonging to each
+    demographic group from census data; proportion for “other” group is
+    given by 1 minus sum of all other groups
+-   `sero.p.loc` = adjusted cumulative incidence at given location for
+    each demographic group
+-   `sero.tested.loc` = number of people tested at given location for
+    each demographic group
 
 ``` r
-g.parm = 1/4          # Mean infectious period of 4 days
-r.parm = 1/3          # Mean latent period of 3 days
-default.R0 = 3.0      # All analyses will be run assuming an R0 of 3
-
-# Seroprevalence data are from Rosenberg et al. 2020 Table 2 and population census data are from 2018 ACS 1-year estimates Table B03002
-# Ordering of vectors: non-Hispanic white, Hispanic or Latino, non-Hispanic Black / African-American, NH Asian, multiracial / other
-
-# pop.loc = total population at given location
-# pop.p.loc = fraction of each population belonging to each demographic group from census data; proportion for "other" group is given by 1 minus sum of all other groups
-# sero.p.loc = adjusted cumulative incidence at given location for each demographic group
-# sero.tested.loc = number of people tested at given location for each demographic group 
-
+# Could also read this in from external file
 pop.nyc <- 8398748
-pop.p.nyc <- c(0.319, 0.292, 0.217, 0.141, 0.032)
-sero.p.nyc <- c(0.166, 0.330, 0.252, 0.145, 0.204)
-sero.tested.nyc <- c(1758, 2103, 1392, 509, 184)
+pop.p.nyc <- c(0.319, 0.292, 0.217, 0.141, 0.032)    #<= JC: percentages, or does it make sense to enter full values? and calculate population nyc? Probably from consensus data...load in next three columns as text/excel
+sero.tested.nyc <- c(1758, 2103, 1392, 509, 184)     #<= total tested (contains positive and negative)
+sero.p.nyc <- c(0.166, 0.330, 0.252, 0.145, 0.204)   #<= percentage of tested that were sero positive (might be easier to report total numbers)
 # Example: There are 8398748 people in NYC, of which 31.9% are non-Hispanic white. In the serosurvey, Rosenberg et al. tested 1758 non-Hispanic whites from NYC, of which 16.6% were seropositive (have SARS-CoV-2 antibodies, indicating they were infected at some point in the past).
 pop.li <- 2839436
 pop.p.li <- c(0.632, 0.186, 0.093, 0.068, 0.022)
-sero.p.li <- c(0.087, 0.320, 0.158, 0.084, 0.207)
 sero.tested.li <- c(1599, 301, 111, 50, 50)
+sero.p.li <- c(0.087, 0.320, 0.158, 0.084, 0.207)
 ```
 
-Define the SEIR model. SEIR model with variable exposure for each
-demographic group via social mixing matrix; also allows for varying
+Note: Could define states and transitions (similar to an HMM).
+
+## Define the modified SEIR model and parameters
+
+The basic SEIR (Susceptible-Exposed-Infectious-Removed) model and
+transitions rates for each timestep are defined below:
+
+<img src="https://raw.githubusercontent.com/j23414/sismid-2021-modeling-breakout/main/imgs/SEIR.png" width="500"/>
+
+Since we are splitting groups by demographic, each demographic will have
+its own SEIR infectious states. Mixing/exposure between demographics are
+defined by an `epsilon` parameter. SEIR model with variable exposure for
+each demographic group via social mixing matrix; also allows for varying
 degrees of assortativity.
 
-![](imgs/SEIR.png)
-
 ``` r
+# Define transition rates between states (gamma, rho)
+g.parm = 1/4          # Mean infectious period of 4 days
+r.parm = 1/3          # Mean latent period of 3 days
+default.R0 = 3.0      # All analyses will be run assuming an R0 of 3
 # epsilon = 0 gives proportionate mixing and epsilon = 1 gives fully assortative mixing
 
 exposure.SEIR <- function(t, x, parms){           # Set up function with three arguments         
@@ -104,17 +120,22 @@ rescale.R0 <- function(beta, g.parm, pop.p, N, R0.value, ngm.plot=TRUE) {
         d <- ggplot(plot.NGM, aes(Var2, Var1)) +                  # Geom_tile produces nice 2D tiled rectangle plots
             geom_tile(aes(fill = value)) +
             geom_text(aes(label = round(value, 2))) +
-            scale_x_discrete(labels = c('A','B','C','D','E')) +
-            scale_y_discrete(labels = c('A','B','C','D','E')) +
-            xlab('Demographic group of infector') +
-            ylab('Demographic group of infectees') +
-            labs(fill='Expected number of infections') + 
-            scale_fill_gradient2(high='#47ad83') +
-            theme(panel.background=element_rect(fill="white"),
-                axis.ticks.x=element_blank(),
-                axis.ticks.y=element_blank(),
-                axis.title.y=element_text(margin = margin(t = 0, r = 5, b = 0, l = 0)),
-                axis.title.x=element_text(margin = margin(t = 5, r = 0, b = 0, l = 0)))
+            scale_x_discrete(labels=c('NH white', 'Hispanic or Latino', 'NH Black / African-American', 'NH Asian', 'Multiracial / other')) +
+            scale_y_discrete(labels=c('NH white', 'Hispanic or Latino', 'NH Black / African-American', 'NH Asian', 'Multiracial / other')) +
+#            scale_x_discrete(labels = c('A','B','C','D','E')) +
+#            scale_y_discrete(labels = c('A','B','C','D','E')) +
+            labs(
+              fill='Expected number of infections',
+              x='Demographic group of infector',
+              y='Demographic group of infectees') +
+          scale_fill_gradient2(high='#47ad83') +
+          theme_bw() +
+            theme(
+#              panel.background=element_rect(fill="white"),
+              axis.ticks = element_blank(),
+              axis.text.x = element_text(angle=45, hjust=1),
+              axis.title.y=element_text(margin = margin(t = 0, r = 5, b = 0, l = 0)),
+              axis.title.x=element_text(margin = margin(t = 5, r = 0, b = 0, l = 0)))
         print(d)
         ggsave('model-ngm.png', width=6.5, height=3, dpi=300)
     }
@@ -173,7 +194,12 @@ run.structured.model <- function(R0.value, pop, pop.p, g.parm, fitted.vars, mode
             select(matches('S|time')) %>%
             rowwise() %>% 
             mutate(p.nonsuscep = 1-sum(c(S0, S1, S2, S3, S4))/N) %>%
-            mutate(HIT0 = 1-S0/N0, HIT1 = 1-S1/N1, HIT2 = 1-S2/N2, HIT3 = 1-S3/N3, HIT4 = 1-S4/N4) %>%
+            mutate(
+              HIT0 = 1-S0/N0, 
+              HIT1 = 1-S1/N1, 
+              HIT2 = 1-S2/N2, 
+              HIT3 = 1-S3/N3, 
+              HIT4 = 1-S4/N4) %>%
             mutate(Rt = as.numeric(eigen(c(S0, S1, S2, S3, S4)*
                                          scale.beta/scaling.factor/g.parm)$values[1])) %>%
             ungroup()
@@ -189,7 +215,12 @@ run.structured.model <- function(R0.value, pop, pop.p, g.parm, fitted.vars, mode
         # Normalize cumulative incidence
         plotdat <- simulation %>% 
             select(matches('R|time')) %>%
-            mutate(R0 = R0/N0, R1 = R1/N1, R2 = R2/N2, R3 = R3/N3, R4 = R4/N4) %>%
+            mutate(
+              R0 = R0/N0, 
+              R1 = R1/N1, 
+              R2 = R2/N2, 
+              R3 = R3/N3, 
+              R4 = R4/N4) %>%
             pivot_longer(-one_of(c('time')), names_to='Compartment', values_to='N')
         ylabel <- 'Proportion recovered'
     
@@ -298,8 +329,9 @@ fit.model <- function(pop, pop.p, sero.p, sero.tested, r.parm, g.parm, epsilon=0
 }
 ```
 
+## Proportionate mixing
+
 ``` r
-### Proportionate mixing
 # epsilon = 0 runs a proportionate mixing model
 
 # Fit the activity levels using maximum likelihood
@@ -341,6 +373,8 @@ print(results.pmix.li)
 # ... C denotes non-Hispanic African-Americans, D denotes non-Hispanic Asians, 
 # ... and E denotes multiracial or other demographic groups.
 ```
+
+## Assortative mixing
 
 ``` r
 ### Assortative mixing
