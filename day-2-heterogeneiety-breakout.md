@@ -1,27 +1,13 @@
-
----
-title: "R code for SISMID 2021 Day 2 Heterogeneity and Herd Immunity Breakout Session"
-date: "12/3/2020"
-output:
-  github_document
-editor_options:
-  chunck_output_type: console
----
-
-```{r setup, include=FALSE}
-knitr::opts_chunk$set(
-  echo = TRUE,
-  collapse = TRUE,
-  comment = "#>",
-  fig.path = "imgs/R_"
-)
-```
+R code for SISMID 2021 Day 2 Heterogeneity and Herd Immunity Breakout
+Session
+================
+12/3/2020
 
 Minor Modifications: 2021/07/08
 
 Load R libraries.
 
-```{r chunk1, warning=FALSE, message=FALSE} 
+``` r
 library(tidyverse)
 library(deSolve)
 library(RColorBrewer)
@@ -30,7 +16,7 @@ library(reshape2)
 
 ## (1) Set parameters to the SEIR model
 
-```{r chunk2}
+``` r
 g.parm = 1/4          # Mean infectious period of 4 days
 r.parm = 1/3          # Mean latent period of 3 days
 default.R0 = 3.0      # All analyses will be run assuming an R0 of 3
@@ -54,9 +40,11 @@ sero.p.li <- c(0.087, 0.320, 0.158, 0.084, 0.207)
 sero.tested.li <- c(1599, 301, 111, 50, 50)
 ```
 
-Define the SEIR model. SEIR model with variable exposure for each demographic group via social mixing matrix; also allows for varying degrees of assortativity
+Define the SEIR model. SEIR model with variable exposure for each
+demographic group via social mixing matrix; also allows for varying
+degrees of assortativity
 
-```{r chunk3}
+``` r
 # epsilon = 0 gives proportionate mixing and epsilon = 1 gives fully assortative mixing
 
 exposure.SEIR <- function(t, x, parms){           # Set up function with three arguments         
@@ -79,15 +67,11 @@ exposure.SEIR <- function(t, x, parms){           # Set up function with three a
         list(der)                                 # Return result as a list       
     })
 }
-
-
 ```
 
 Create a `rescale.R0` function to center and generate plots.
 
-
-```{r chunk4}
-
+``` r
 # Rescale parameters so that R0 stays constant and plot NGM
 #
 # INPUT 
@@ -134,13 +118,11 @@ rescale.R0 <- function(beta, g.parm, pop.p, N, R0.value, ngm.plot=TRUE) {
     }
     return(scaling.factor)
 }
-
 ```
 
+2.  Simulate variable exposure models given activity levels
 
-(2) Simulate variable exposure models given activity levels
-
-```{r chunk5}
+``` r
 # INPUT 
 # R0.value = desired R0
 # pop = total population size
@@ -230,11 +212,9 @@ run.structured.model <- function(R0.value, pop, pop.p, g.parm, fitted.vars, mode
     names(results) <- c('Final epidemic size', 'HIT', 'Cumulative incidence by group at the HIT')
     return(results)
 }
-
 ```
 
-```{r chunk6}
-
+``` r
 # For a given set of model parameters, calculate the negative log likelihood using the serosurvey data
 #
 # INPUT 
@@ -314,12 +294,9 @@ fit.model <- function(pop, pop.p, sero.p, sero.tested, r.parm, g.parm, epsilon=0
     print(paste(c('Normalized fitted values:', round(fit$par/fit$par[1], 3)), collapse=' '))
     return(fit$par/fit$par[1])
 }
-
 ```
 
-
-```{r chunk7}
-
+``` r
 ### Proportionate mixing
 # epsilon = 0 runs a proportionate mixing model
 
@@ -332,20 +309,38 @@ activities.pmix.li <- fit.model(
   epsilon=0,
   r.parm=r.parm, 
   g.parm=g.parm)      
+#> [1] "Normalized fitted values: 1 4.31 1.956 0.916 2.475"
 
 # Simulate the model with R0=3 and plot outputs / print results (HIT, final epidemic size)
 results.pmix.li <- run.structured.model(R0.value=default.R0, pop=pop.li, pop.p=pop.p.li, epsilon=0, 
                                         g.parm=g.parm, fitted.vars=activities.pmix.li)
+```
+
+![](imgs/R_chunk7-1.png)<!-- -->
+
+    #> Warning: Removed 107500 row(s) containing missing values (geom_path).
+
+    #> Warning: Removed 107500 row(s) containing missing values (geom_path).
+
+![](imgs/R_chunk7-2.png)<!-- -->
+
+``` r
 print(results.pmix.li)
+#> $`Final epidemic size`
+#> [1] 0.6932
+#> 
+#> $HIT
+#> [1] 0.3977
+#> 
+#> $`Cumulative incidence by group at the HIT`
+#> [1] 0.2861 0.7660 0.4828 0.2657 0.5658
 
 # For the NGM plot, Group A denotes non-Hispanic whites, B denotes Hispanics or Latinos, 
 # ... C denotes non-Hispanic African-Americans, D denotes non-Hispanic Asians, 
 # ... and E denotes multiracial or other demographic groups.
-
 ```
 
-```{r chunk8, eval=FALSE}
-
+``` r
 ### Assortative mixing
 
 # Fit the activity levels using maximum likelihood
@@ -378,6 +373,4 @@ print(results.amix.nyc)
 # For the NGM plot, Group A denotes non-Hispanic whites, B denotes Hispanics or Latinos, 
 # ... C denotes non-Hispanic African-Americans, D denotes non-Hispanic Asians, 
 # ... and E denotes multiracial or other demographic groups.
-
 ```
-

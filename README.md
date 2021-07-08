@@ -8,3 +8,5 @@ Before lecture, skim through the paper ["Modeling the impact of racial and ethni
 During the breakout session, download the following files: [SISMID_Day_2_Breakout_Overview.pdf](https://github.com/kevincma/sismid-2021-modeling-breakout/blob/main/SISMID_Day_2_Breakout_Overview.pdf) walks through the code and contains exercise questions for you to complete in your groups, and [day-2-heterogeneiety-breakout.Rmd](https://github.com/kevincma/sismid-2021-modeling-breakout/blob/main/day-2-heterogeneiety-breakout.Rmd) is the R markdown file with all the code.
 
 Please reach out to the course instructors or TAs if any questions arise!
+
+* [View Results](day-2-heterogeneiety-breakout.md)
